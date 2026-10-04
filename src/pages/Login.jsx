@@ -1,43 +1,64 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // <-- import Link
-import api from '../api';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import api, { getErrorMessage } from "../api";
 
 export default function Login() {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const navigate = useNavigate();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await api.post('/api/auth/login', { username, password });
-            localStorage.setItem('access_token', res.data.tokens.access_token);
-            localStorage.setItem('refresh_token', res.data.tokens.refresh_token);
-            navigate('/products');
-        } catch (err) {
-            setError('Invalid username or password');
-        }
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/api/auth/login", { username, password });
+      const d = res.data;
+      const token = d.access_token || d.token || d.data?.access_token || d.data?.token;
+      const refresh = d.refresh_token || d.data?.refresh_token;
 
-    return (
-        <div style={{ maxWidth: 300, margin: '100px auto', fontFamily: 'sans-serif' }}>
-            <h2>Login</h2>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-            <form onSubmit={handleSubmit}>
-                <input placeholder="Username" value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    style={{ width: '100%', marginBottom: 10, padding: 8 }} />
-                <input type="password" placeholder="Password" value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{ width: '100%', marginBottom: 10, padding: 8 }} />
-                <button type="submit" style={{ width: '100%', padding: 10 }}>Login</button>
-            </form>
+      if (!token) {
+        setError("Login succeeded but no token was returned by the API.");
+        return;
+      }
+      localStorage.setItem("access_token", token);
+      if (refresh) localStorage.setItem("refresh_token", refresh);
+      navigate("/products");
+    } catch (err) {
+      setError(getErrorMessage(err, "Invalid username or password"));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            {/* Register link */}
-            <p style={{ marginTop: 10 }}>
-                Don’t have an account? <Link to="/register">Register here</Link>
-            </p>
-        </div>
-    );
+  return (
+    <div className="card auth">
+      <h2>Login</h2>
+      {error && <p className="error">{error}</p>}
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
+        </button>
+      </form>
+      <p>
+        No account yet? <Link to="/register">Register</Link>
+      </p>
+    </div>
+  );
 }
